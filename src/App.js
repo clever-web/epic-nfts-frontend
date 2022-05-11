@@ -11,6 +11,11 @@
     const OPENSEA_LINK = '';
     const TOTAL_MINT_COUNT = 50;
 
+    // I moved the contract address to the top for easy acees.
+    const CONTRACT_ADDRESS = "0x68B3C78dF1AEEf3Eb1dfAc3E446f9B6b8320899E";
+    // Define abi file 
+    const ContractABI = MyEpicNFT.abi;
+
     const App = () => {
 
     /*
@@ -40,11 +45,15 @@
         * User can have multiple authorized accounts, we grab the first one if its there!
         */
         if (accounts.length !== 0) {
-        const account = accounts[0];
-        console.log("Found an authorized account:", account);
-        setCurrentAccount(account);
+            const account = accounts[0];
+            console.log("Found an authorized account:", account);
+            setCurrentAccount(account);
+
+            // Setup listener! This is for the case where a user comes to our site
+            // and ALREADY had their wallet connected + authorized.
+            setupEventListener()
         } else {
-        console.log("No authorized account found");
+            console.log("No authorized account found");
         }
     }
 
@@ -70,16 +79,45 @@
         */
         console.log("Connected", accounts[0]);
         setCurrentAccount(accounts[0]); 
+
+        // Setup listener! This is for the case where a user comes to our site
+        // and connected their wallet for the first time.
+        setupEventListener()
         } catch (error) {
         console.log(error);
         }
     }
 
-    const askContractToMintNft = async () => {
-        const CONTRACT_ADDRESS = "0x95a1Be3f9c2D0D913f101dF889Ae4C1117F691F2";
-        const ContractABI = MyEpicNFT.abi;
+    const setupEventListener = async () => {
 
+        try {
+        const { ethereum } = window;
     
+        if (ethereum) {
+            const provider = new ethers.providers.Web3Provider(ethereum);
+            const signer = provider.getSigner();
+            const connectedContract = new ethers.Contract(CONTRACT_ADDRESS, ContractABI, signer);
+    
+            // THIS IS THE MAGIC SAUCE.
+            // This will essentially "capture" our event when our contract throws it.
+            // If you're familiar with webhooks, it's very similar to that!
+            connectedContract.on("NewEpicNFTMinted", (from, tokenId) => {
+                console.log(from, tokenId.toNumber())
+                alert(`Hey there! We've minted your NFT and sent it to your wallet. It may be blank right now. It can take a max of 10 min to show up on OpenSea. Here's the link: https://testnets.opensea.io/assets/${CONTRACT_ADDRESS}/${tokenId.toNumber()}`)
+            });
+    
+            console.log("Setup event listener!")
+    
+        } else {
+            console.log("Ethereum object doesn't exist!");
+        }
+        } catch (error) {
+        console.log(error)
+        }
+    }
+
+    const askContractToMintNft = async () => {
+
         try {
         const { ethereum } = window;
     
@@ -104,13 +142,6 @@
         }
     }
 
-    // Render Methods
-    const renderNotConnectedContainer = () => (
-        <button className="cta-button connect-wallet-button" onClick={connectWallet}>
-        Connect to Wallet
-        </button>
-    );
-
     /*
     * This runs our function when the page loads.
     */
@@ -118,32 +149,39 @@
         checkIfWalletIsConnected();
     }, [])
 
+    // Render Methods
+    const renderNotConnectedContainer = () => (
+        <button className="cta-button connect-wallet-button" onClick={connectWallet}>
+            Connect to Wallet
+        </button>
+    );
+
+    const renderMintUI = () => (
+        <button className="cta-button connect-wallet-button" onClick={askContractToMintNft}>
+            Mint NFT
+        </button>
+    )
+
     return (
         <div className="App">
-        <div className="container">
-            <div className="header-container">
-            <p className="header gradient-text">My NFT Collection</p>
-            <p className="sub-text">
-                Each unique. Each beautiful. Discover your NFT today.
-            </p>
-            {currentAccount === "" ? (
-                renderNotConnectedContainer()
-            ) : (
-                <button onClick={askContractToMintNft} className="cta-button connect-wallet-button">
-                Mint NFT
-                </button>
-            )}
+            <div className="container">
+                <div className="header-container">
+                    <p className="header gradient-text">My NFT Collection</p>
+                    <p className="sub-text">
+                        Each unique. Each beautiful. Discover your NFT today.
+                    </p>
+                    {currentAccount === "" ? renderNotConnectedContainer() : renderMintUI()}
+                </div>
+                <div className="footer-container">
+                    <img alt="Twitter Logo" className="twitter-logo" src={twitterLogo} />
+                    <a
+                        className="footer-text"
+                        href={TWITTER_LINK}
+                        target="_blank"
+                        rel="noreferrer"
+                    >{`built on @${TWITTER_HANDLE}`}</a>
+                </div>
             </div>
-            <div className="footer-container">
-            <img alt="Twitter Logo" className="twitter-logo" src={twitterLogo} />
-            <a
-                className="footer-text"
-                href={TWITTER_LINK}
-                target="_blank"
-                rel="noreferrer"
-            >{`built on @${TWITTER_HANDLE}`}</a>
-            </div>
-        </div>
         </div>
     );
     };
